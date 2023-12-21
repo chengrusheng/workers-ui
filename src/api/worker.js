@@ -27,5 +27,12 @@ export default {
    */
   async deleteWorker(params) {
     return await http.delete("/api/worker/delete", params);
-  }
+  },
+  /**
+   * 查询职工列表
+   * @returns
+   */
+  async exportExcel(params) {
+    return await http.download("api/worker/export", params);
+  },
 }

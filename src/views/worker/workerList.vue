@@ -37,10 +37,12 @@
         </el-button>
         <el-button icon="el-icon-refresh-right" @click="resetValue">重置</el-button>
         <el-button type="success" icon="el-icon-plus" @click="openAddWindow">新增</el-button>
+        <el-button type="success" icon="el-icon-download" @click="exportData">导出</el-button>
       </el-form-item>
     </el-form>
     <!-- 数据表格 -->
     <el-table
+      v-loading="loading"
       :data="workerList"
       :height="tableHeight"
       border
@@ -170,6 +172,7 @@ export default {
         pageNo:1,
         pageSize:10
       },
+      loading: false,
       workerList: [], //数据列表
       tableHeight: 0, //表格高度
       pageNo: 1, //当前页码
@@ -252,6 +255,7 @@ export default {
      * 查询
      */
     async search(pageNo=1,pageSize=10) {
+      this.loading = true
       this.searchModel.pageNo = pageNo;//当前页码
       this.searchModel.pageSize = pageSize;//每页显示数量
       //发送查询请求
@@ -262,7 +266,30 @@ export default {
         this.workerList = res.data.records;
         //总数量
         this.total = res.data.total;
+        this.loading = false
+      } else {
+        this.$message.warning(res.message)
+        this.loading = false
       }
+    },
+    //导出
+    exportData() {
+      workerApi.exportExcel(this.searchModel).then(res => {
+        console.log(res)
+        const link = document.createElement("a");
+
+        // let blob = new Blob([res.data], { type: 'xlsx' });
+        let blob = new Blob([res.data], { type: "application/vnd.ms-excel;charset=UTF-8" }); //知道type也可以直接填
+        link.style.display = "none";
+        //设置连接
+        let url = URL.createObjectURL(blob);
+        link.href = url;
+        //导出文件名称
+        link.download = "职工数据";
+        //模拟点击事件
+        link.click();
+        document.body.removeChild(link);
+      })
     },
     /**
      * 重置查询条件

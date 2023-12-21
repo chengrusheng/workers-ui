@@ -41,7 +41,12 @@ service.interceptors.response.use(
    */
   response => {
     const res = response.data
+    console.log('response')
+    console.log(response)
     // if the custom code is not 20000, it is judged as an error.
+    if (!res.code) {
+      return response
+    }
     if (res.code !== 200) {
       Message({
         message: res.message || 'Error',
@@ -104,6 +109,18 @@ const http = {
       paramsSerializer: (params) => {
         return qs.stringify(params)
       }
+    })
+  },
+  download(url, params) {
+    return service.get(url, {
+      params: params,
+      paramsSerializer: (params) => {
+        return qs.stringify(params)
+      },
+      header: {
+        headers: { 'Content-Type': 'application/x-download' }
+      },
+      responseType: 'blob'
     })
   },
   getRestApi(url, params) {
