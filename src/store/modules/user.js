@@ -1,5 +1,5 @@
 import { login, logout, getInfo } from '@/api/user'
-import { getToken, setToken, removeToken } from '@/utils/auth'
+import { getToken, setToken, removeToken, setTokenTime } from '@/utils/auth'
 import router, { resetRouter } from '@/router'
 
 const state = {
@@ -11,18 +11,23 @@ const state = {
 }
 
 const mutations = {
+  //设置token信息
   SET_TOKEN: (state, token) => {
     state.token = token
   },
+  //设置个人介绍
   SET_INTRODUCTION: (state, introduction) => {
     state.introduction = introduction
   },
+  //设置用户姓名
   SET_NAME: (state, name) => {
     state.name = name
   },
+  //设置用户头像
   SET_AVATAR: (state, avatar) => {
     state.avatar = avatar
   },
+  //设置用户对应的角色
   SET_ROLES: (state, roles) => {
     state.roles = roles
   },
@@ -33,18 +38,21 @@ const mutations = {
 }
 
 const actions = {
-  // user login
+  // 用户登录
   login({ commit }, userInfo) {
+    //从用户信息userInfo中解构出用户名和密码
     const { username, password } = userInfo
     return new Promise((resolve, reject) => {
       //调用src/api/user.js文件中的login()方法
       login({ username: username.trim(), password: password }).then(response => {
         //从response中解构出返回的token数据
-        const { token } = response
+        const { token,expireTime } = response
         //将返回的token数据保存到store中，作为全局变量使用
         commit('SET_TOKEN', token)
         //将token信息保存到cookie中
         setToken(token)
+        //设置token过期时间
+        setTokenTime(expireTime);
         resolve()
       }).catch(error => {
         reject(error)

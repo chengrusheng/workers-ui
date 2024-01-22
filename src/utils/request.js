@@ -1,30 +1,78 @@
 import axios from 'axios'
 import { MessageBox, Message } from 'element-ui'
 import store from '@/store'
-import { getToken } from '@/utils/auth'
+import { getToken, setToken, clearStorage, getTokenTime, setTokenTime, removeTokenTime } from '@/utils/auth'
 import qs from 'qs'
+//导入刷新token的api脚本
+import { refreshTokenApi } from '@/api/user'
 // create an axios instance
 const service = axios.create({
   baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
-  // withCredentials: true, // send cookies when cross-domain requests
-  timeout: 5000 // request timeout
+// withCredentials: true, // send cookies when cross-domain requests
+  timeout: 15000 // 请求超时时间
 })
-// request interceptor
+
+/**
+ * 刷新token
+ */
+function refreshTokenInfo(){
+//设置请求参数
+  let param = {
+    token:getToken()
+  }
+  return refreshTokenApi(param).then(res=>res);
+}
+
+//定义变量，标识是否刷新token
+let isRefresh = false;
+// 发送请求之前进行拦截
 service.interceptors.request.use(
   config => {
-    console.log(config)
-    // do something before request is sent
+    //获取当前系统时间
+    let currentTime = new Date().getTime();
+    //获取token过期时间
+    let expireTime = getTokenTime();
+    //判断token是否过期
+    if(expireTime>0){
+      //计算时间
+      let min = (expireTime - currentTime) / 1000 / 60;
+      //如果token离过期时间相差10分钟，则刷新token
+      if(min<10){
+        //判断是否刷新
+        if(!isRefresh){
+          //标识刷新
+          isRefresh = true;
+          //调用刷新token的方法
+          return refreshTokenInfo().then(res=>{
+            //判断是否成功
+            if(res.success){
+              //设置新的token和过期时间
+              setToken(res.data.token);
+              setTokenTime(res.data.expireTime);
+              //将新的token添加到header头部
+              config.headers.token = getToken();
+            }
+            return config;
+          }).catch(error=>{
+          }).finally(()=>{
+            //修改是否刷新token的状态
+            isRefresh = false;
+          });
+        }
+      }
+    }
+    // 从store里面获取token，如果token存在，则将token添加到请求的头部headers中
     if (store.getters.token) {
-    // let each request carry token
-    // ['X-Token'] is a custom headers key
-    // please modify it according to the actual situation
+      // 将token添加到请求的头部
       config.headers['token'] = getToken()
     }
     return config
   },
   error => {
-    // do something with request error
-    console.log(error) // for debug
+    //清空sessionStorage
+    clearStorage();
+    //清空token过期时间
+    removeTokenTime();
     return Promise.reject(error)
   }
 )
@@ -41,8 +89,6 @@ service.interceptors.response.use(
    */
   response => {
     const res = response.data
-    console.log('response')
-    console.log(response)
     // if the custom code is not 20000, it is judged as an error.
     if (!res.code) {
       return response
@@ -56,13 +102,17 @@ service.interceptors.response.use(
       // 50008: Illegal token; 50012: Other clients logged in; 50014: Token expired;
       if (res.code === 50008 || res.code === 50012 || res.code === 50014) {
         // to re-login
-        MessageBox.confirm('You have been logged out, you can cancel to stay on this page, or log in again', 'Confirm logout', {
-        confirmButtonText: 'Re-Login',
-          cancelButtonText: 'Cancel',
+        MessageBox.confirm('用户登录信息过期，请重新登录！', '系统提示', {
+          confirmButtonText: '登录',
+          cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
           store.dispatch('user/resetToken').then(() => {
-          location.reload()
+            //清空sessionStorage
+            clearStorage();
+            //清空token过期时间
+            removeTokenTime();
+            location.reload()
           })
         })
       }
@@ -70,9 +120,12 @@ service.interceptors.response.use(
     } else {
      return res
     }
-    },
+  },
 error => {
-  console.log('err' + error) // for debug
+  //清空sessionStorage
+  clearStorage();
+  //清空token过期时间
+  removeTokenTime();
   Message({
     message: error.message,
     type: 'error',
@@ -137,6 +190,7 @@ const http = {
           _params += `${params[key]}/`
         }
       }
+      //去掉参数最后一位?
       _params = _params.substr(0, _params.length - 1)
     }
     console.log(_params)
@@ -153,7 +207,7 @@ const http = {
     } else {
       _params = '/'
       for (const key in params) {
-// eslint-disable-next-line no-prototype-builtins
+        // eslint-disable-next-line no-prototype-builtins
         if (params.hasOwnProperty(key) && params[key] !== null && params[key]
           !== '') {
           _params += `${params[key]}/`
