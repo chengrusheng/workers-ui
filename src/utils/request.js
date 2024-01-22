@@ -113,6 +113,7 @@ service.interceptors.response.use(
             //清空token过期时间
             removeTokenTime();
             location.reload()
+            this.$router("/login")
           })
         })
       }
